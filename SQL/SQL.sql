@@ -291,8 +291,9 @@ GRANT SELECT ON SGID_LogiChain.RECEPCIONES TO 'rol_dba_sgid';
 GRANT SELECT ON SGID_LogiChain.DETALLE_DESPACHOS TO 'rol_dba_sgid';
 
 -- Creación de Usuarios de los Estudiantes (Ejemplos siguiendo inicial del nombre + apellido todo en minúscula)
-CREATE USER IF NOT EXISTS 'jmatiaz'@'localhost' IDENTIFIED BY 'LogiChain2026*Secure!';
-CREATE USER IF NOT EXISTS 'lcasas'@'localhost' IDENTIFIED BY 'LogiChain2026*Secure!';
-CREATE USER IF NOT EXISTS 'mquiros'@'localhost' IDENTIFIED BY 'LogiChain2026*Secure!';
+CREATE USER IF NOT EXISTS 'crodriguez'@'localhost' IDENTIFIED BY 'MiClaveSegura123*';
+CREATE USER IF NOT EXISTS 'mbarquero'@'localhost' IDENTIFIED BY 'MiClaveSegura123*';
+CREATE USER IF NOT EXISTS 'falfaro'@'localhost' IDENTIFIED BY 'MiClaveSegura123*';
+CREATE USER IF NOT EXISTS 'jestrada'@'localhost' IDENTIFIED BY 'MiClaveSegura123*';
 
 FLUSH PRIVILEGES;
