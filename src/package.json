@@ -1,0 +1,23 @@
+{
+  "name": "proyecto-bases-de-datos-ii",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/MaironBarquero1/Proyecto-Bases-de-Datos-II#readme",
+  "bugs": {
+    "url": "https://github.com/MaironBarquero1/Proyecto-Bases-de-Datos-II/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaironBarquero1/Proyecto-Bases-de-Datos-II.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
