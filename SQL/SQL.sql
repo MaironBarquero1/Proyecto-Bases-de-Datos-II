@@ -263,6 +263,189 @@ END$$
 
 DELIMITER ;
 
+-- --------------------------------------------------------------------
+-- PROCEDIMIENTO ALMACENADO: sp_EliminarCliente
+-- Elimina un cliente validando que el cliente no tenga movimientos
+-- --------------------------------------------------------------------
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_EliminarCliente(IN p_Id_Cliente INT)
+BEGIN
+    DECLARE v_usado INT DEFAULT 0;
+
+    SELECT COUNT(*)
+    INTO v_usado
+    FROM RECEPCIONES
+    WHERE Id_Cliente = p_Id_Cliente;
+
+    IF v_usado > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar el cliente porque tiene recepciones asociadas.';
+    END IF;
+
+    SELECT COUNT(*)
+    INTO v_usado
+    FROM DESPACHOS
+    WHERE Id_Cliente = p_Id_Cliente;
+
+    IF v_usado > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar el cliente porque tiene despachos asociados.';
+    END IF;
+
+    DELETE FROM CLIENTES
+    WHERE Id_Cliente = p_Id_Cliente;
+END$$
+
+DELIMITER ;
+
+
+-- --------------------------------------------------------------------
+-- PROCEDIMIENTO ALMACENADO: sp_EliminarProducto
+-- Elimina un producto realizando validaciones
+-- --------------------------------------------------------------------
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_EliminarProducto(IN p_Id_Producto INT)
+BEGIN
+    DECLARE v_usado INT DEFAULT 0;
+
+    SELECT COUNT(*)
+    INTO v_usado
+    FROM RECEPCIONES
+    WHERE Id_Producto = p_Id_Producto;
+
+    IF v_usado > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar el producto porque tiene recepciones asociadas.';
+    END IF;
+
+    SELECT COUNT(*)
+    INTO v_usado
+    FROM DETALLE_DESPACHOS
+    WHERE Id_Producto = p_Id_Producto;
+
+    IF v_usado > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar el producto porque tiene despachos asociados.';
+    END IF;
+
+    SELECT COUNT(*)
+    INTO v_usado
+    FROM TEMPORAL_CARRO_COMPRAS
+    WHERE Id_Producto = p_Id_Producto;
+
+    IF v_usado > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar el producto porque está en el carro temporal.';
+    END IF;
+
+    DELETE FROM PRODUCTOS
+    WHERE Id_Producto = p_Id_Producto;
+END$$
+
+DELIMITER ;
+
+-- --------------------------------------------------------------------
+-- PROCEDIMIENTO ALMACENADO: sp_ReporteMovimientosProducto
+-- Obtiene los moviemientos de un producto en cierta fecha
+-- --------------------------------------------------------------------
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_ReporteMovimientosProducto(
+    IN p_CodigoProducto VARCHAR(50),
+    IN p_FechaInicio DATETIME,
+    IN p_FechaFin DATETIME
+)
+BEGIN
+    -- Si no envían fechas, usa un rango útil por defecto
+    IF p_FechaInicio IS NULL THEN
+        SET p_FechaInicio = DATE_SUB(NOW(), INTERVAL 1 MONTH);
+    END IF;
+
+    IF p_FechaFin IS NULL THEN
+        SET p_FechaFin = NOW();
+    END IF;
+
+    SELECT *
+    FROM (
+        SELECT
+            p.Codigo AS CodigoProducto,
+            p.Nombre AS NombreProducto,
+            r.Fecha AS FechaMovimiento,
+            'Recepcion' AS TipoMovimiento,
+            c.Nombre AS Cliente,
+            r.Cantidad AS Cantidad,
+            r.Usuario AS Usuario
+        FROM RECEPCIONES r
+        INNER JOIN PRODUCTOS p ON p.Id_Producto = r.Id_Producto
+        INNER JOIN CLIENTES c ON c.Id_Cliente = r.Id_Cliente
+        WHERE p.Codigo = p_CodigoProducto
+          AND r.Fecha BETWEEN p_FechaInicio AND p_FechaFin
+
+        UNION ALL
+
+        SELECT
+            p.Codigo AS CodigoProducto,
+            p.Nombre AS NombreProducto,
+            d.Fecha AS FechaMovimiento,
+            'Despacho' AS TipoMovimiento,
+            c.Nombre AS Cliente,
+            dd.Cantidad AS Cantidad,
+            d.Operario AS Usuario
+        FROM DESPACHOS d
+        INNER JOIN DETALLE_DESPACHOS dd ON dd.Id_Despacho = d.Id_Despacho
+        INNER JOIN PRODUCTOS p ON p.Id_Producto = dd.Id_Producto
+        INNER JOIN CLIENTES c ON c.Id_Cliente = d.Id_Cliente
+        WHERE p.Codigo = p_CodigoProducto
+          AND d.Fecha BETWEEN p_FechaInicio AND p_FechaFin
+    ) AS Movimientos
+    ORDER BY FechaMovimiento DESC;
+END$$
+
+DELIMITER ;
+
+
+-- --------------------------------------------------------------------
+-- PROCEDIMIENTO ALMACENADO: sp_MonitoreoInventarioTiempoReal
+-- Obtiene los ultimos movimeintos de productos
+-- --------------------------------------------------------------------
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_MonitoreoInventarioTiempoReal()
+BEGIN
+    SELECT
+        p.Id_Producto,
+        p.Codigo,
+        p.Nombre,
+        p.Detalle,
+        p.Cantidad_Actual,
+        p.Stock_Critico,
+        p.Bodega,
+        p.Pasillo,
+        p.Estante,
+        (
+            SELECT MAX(r.Fecha)
+            FROM RECEPCIONES r
+            WHERE r.Id_Producto = p.Id_Producto
+        ) AS UltimoIngreso,
+        (
+            SELECT MAX(d.Fecha)
+            FROM DETALLE_DESPACHOS dd
+            INNER JOIN DESPACHOS d ON d.Id_Despacho = dd.Id_Despacho
+            WHERE dd.Id_Producto = p.Id_Producto
+        ) AS UltimoDespacho,
+        fn_VerificarAlertaStock(p.Id_Producto) AS EstadoStock
+    FROM PRODUCTOS p
+    ORDER BY p.Nombre ASC;
+END$$
+
+DELIMITER ;
+
 /*
 	Indices
 */
@@ -297,3 +480,56 @@ CREATE USER IF NOT EXISTS 'falfaro'@'localhost' IDENTIFIED BY 'MiClaveSegura123*
 CREATE USER IF NOT EXISTS 'jestrada'@'localhost' IDENTIFIED BY 'MiClaveSegura123*';
 
 FLUSH PRIVILEGES;
+
+-- Datos de prueba
+
+-- CLIENTES
+INSERT INTO CLIENTES (Nombre, Rol) VALUES
+('Tech Import S.A.', 'origen'),
+('Distribuidora Delta', 'destino'),
+('LogiChain Central', 'ambos'),
+('Proveedor Nexus', 'origen'),
+('Cliente Final UCR', 'destino');
+
+-- PRODUCTOS
+INSERT INTO PRODUCTOS
+(Codigo, Nombre, Detalle, Cantidad_Actual, Stock_Critico, Bodega, Pasillo, Estante)
+VALUES
+('PRD-001', 'Laptop Lenovo ThinkPad', 'Laptop empresarial', 25, 10, 'B1', 'P1', 'E1'),
+('PRD-002', 'Mouse Inalámbrico', 'Mouse USB inalámbrico', 60, 15, 'B1', 'P1', 'E2'),
+('PRD-003', 'Teclado Mecánico', 'Teclado mecánico RGB', 40, 12, 'B2', 'P3', 'E4'),
+('PRD-004', 'Monitor 24"', 'Monitor Full HD', 18, 8, 'B2', 'P2', 'E3'),
+('PRD-005', 'SSD 1TB', 'Unidad de estado sólido', 30, 10, 'B3', 'P1', 'E1');
+
+-- RECEPCIONES
+INSERT INTO RECEPCIONES
+(Id_Producto, Id_Cliente, Numero_Lote, Cantidad, Fecha, Usuario)
+VALUES
+(1, 1, 'LOT-1001', 5, '2026-06-10 08:30:00', 'crodriguez'),
+(2, 4, 'LOT-1002', 20, '2026-06-11 09:10:00', 'mbarquero'),
+(3, 1, 'LOT-1003', 10, '2026-06-12 10:00:00', 'falfaro');
+
+-- ACTUALIZACIÓN REAL DEL INVENTARIO
+UPDATE PRODUCTOS SET Cantidad_Actual = Cantidad_Actual + 5  WHERE Id_Producto = 1;
+UPDATE PRODUCTOS SET Cantidad_Actual = Cantidad_Actual + 20 WHERE Id_Producto = 2;
+UPDATE PRODUCTOS SET Cantidad_Actual = Cantidad_Actual + 10 WHERE Id_Producto = 3;
+
+-- DESPACHOS
+INSERT INTO DESPACHOS (Id_Cliente, Fecha, Estado, Operario) VALUES
+(2, '2026-06-13 14:00:00', 'pendiente', 'jestrada'),
+(5, '2026-06-14 15:20:00', 'procesado', 'crodriguez');
+
+-- TEMPORAL_CARRO_COMPRAS
+INSERT INTO TEMPORAL_CARRO_COMPRAS (Usuario, Id_Producto, Cantidad) VALUES
+('jestrada', 1, 2),
+('jestrada', 2, 3),
+('jestrada', 3, 1);
+
+-- DETALLE DESPACHOS DE EJEMPLO
+INSERT INTO DETALLE_DESPACHOS (Id_Despacho, Id_Producto, Cantidad) VALUES
+(2, 1, 2),
+(2, 2, 3);
+
+-- DESCUENTO REAL DE INVENTARIO PARA EL DESPACHO YA PROCESADO
+UPDATE PRODUCTOS SET Cantidad_Actual = Cantidad_Actual - 2 WHERE Id_Producto = 1;
+UPDATE PRODUCTOS SET Cantidad_Actual = Cantidad_Actual - 3 WHERE Id_Producto = 2;

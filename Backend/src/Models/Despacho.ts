@@ -1,7 +1,13 @@
 export interface Despacho {
-    idDespacho: number;
-    idCliente: number;
-    fecha: Date;
-    estado: string;
-    operario: string;
+  idDespacho: number;
+  idCliente: number;
+  fecha: Date;
+  estado: Estado;
+  operario: string;
+}
+
+export enum Estado {
+  "pendiente",
+  "procesado",
+  "cancelado",
 }

@@ -1,7 +1,7 @@
-import { pool } from "./ConnectionDB";
+import { pool } from "./ConexionDB";
 import {AuditoriaProducto} from '../Models/AuditoriaProducto';
 
-export class AuditoriaProductoRepository {
+export class AuditoriaProductoRepositorio {
   static async buscarPorProducto(productoId: number): Promise<AuditoriaProducto[]> {
     return new Promise((resolve, reject) =>{
         pool.query('SELECT * FROM AUDITORIA_PRODUCTOS p WHERE p.Id_Producto = ?',[productoId],(err,results) =>{

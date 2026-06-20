@@ -1,7 +1,7 @@
-import { pool } from "./ConnectionDB";
+import { pool } from "./ConexionDB";
 import { Cliente } from "../Models/Cliente";
 
-export class ClienteRepository {
+export class ClienteRepositorio {
     static async obtenerTodos(): Promise<Cliente[]> {
         return new Promise((resolve, reject) => {
             pool.query("SELECT * FROM CLIENTES", (err, results) => {
@@ -24,14 +24,14 @@ export class ClienteRepository {
         });
     }
 
-    static async crear(cliente: Omit<Cliente, 'idCliente'>): Promise<number> {
+    static async crear(cliente: Omit<Cliente, 'idCliente'>): Promise<Cliente> {
         return new Promise((resolve, reject) => {
             pool.query(
                 "INSERT INTO CLIENTES (Nombre, Rol) VALUES (?, ?)",
                 [cliente.nombre, cliente.rol],
                 (err: any, result: any) => {
                     if (err) reject(err);
-                    else resolve(result.insertId as number);
+                    else resolve(result);
                 }
             );
         });
