@@ -1,37 +1,60 @@
 import { pool } from "./ConexionDB";
 import { Cliente } from "../Models/Cliente";
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 export class ClienteRepositorio {
     static async obtenerTodos(): Promise<Cliente[]> {
-        return new Promise((resolve, reject) => {
-            pool.query("SELECT * FROM CLIENTES" );
-        });
+        try {
+            const [rows] = await pool.query<RowDataPacket[] & Cliente[]>("SELECT * FROM CLIENTES" );
+            return rows;
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async obtenerPorId(id: number): Promise<Cliente | null> {
-        return new Promise((resolve, reject) => {
-            pool.query(
+        try {
+            const [rows] = await pool.query<RowDataPacket[] & Cliente[]>(
                 "SELECT * FROM CLIENTES WHERE Id_Cliente = ?",
                 [id],
             );
-        });
+            return rows.length > 0 ? rows[0] : null;
+        } catch (error) {
+            throw error;
+        }
     }
 
-    static async crear(cliente: Omit<Cliente, 'idCliente'>): Promise<Cliente> {
-        return new Promise((resolve, reject) => {
-            pool.query(
+    static async crearCliente(cliente: Omit<Cliente, 'idCliente'>): Promise<number> {
+        try {
+            const [result] = await pool.query<ResultSetHeader>(
                 "INSERT INTO CLIENTES (Nombre, Rol) VALUES (?, ?)",
                 [cliente.nombre, cliente.rol],
             );
-        });
+            return result.insertId;
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async actualizar(id: number, cliente: Partial<Cliente>): Promise<boolean> {
-        return new Promise((resolve, reject) => {
+        try {
+            const camposProtegidos = new Set(['id']);
+            const camposValidos = Object.keys(cliente).filter(k => cliente[k as keyof Cliente] !== undefined && !camposProtegidos.has(k));
+
+            if(camposValidos.length === 0) return false;
+
+            const parametrosString = camposValidos.map(campo =>{`${campo} = ?`}).join(', ');
+
+            const valoresConsulta = camposValidos.map(campo =>{})
             pool.query(
                 "UPDATE CLIENTES SET Nombre = ?, Rol = ? WHERE Id_Cliente = ?",
                 [cliente.nombre, cliente.rol, id],
             );
+            
+        } catch (error) {
+            
+        }
+        return new Promise((resolve, reject) => {
         });
     }
 
