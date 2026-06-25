@@ -45,26 +45,25 @@ export class ClienteRepositorio {
 
             const parametrosString = camposValidos.map(campo =>{`${campo} = ?`}).join(', ');
 
-            const valoresConsulta = camposValidos.map(campo =>{})
-            pool.query(
-                "UPDATE CLIENTES SET Nombre = ?, Rol = ? WHERE Id_Cliente = ?",
-                [cliente.nombre, cliente.rol, id],
+            const valoresConsulta = camposValidos.map(campo =>cliente[campo as keyof Cliente])
+            valoresConsulta.push(id);
+            const [result] = await pool.query<ResultSetHeader>(
+                `UPDATE CLIENTES SET ${parametrosString} WHERE Id_Cliente = ?`,
+                valoresConsulta,
             );
-            
+            return result.affectedRows > 0;
         } catch (error) {
-            
+            throw error;
         }
-        return new Promise((resolve, reject) => {
-        });
     }
 
     static async eliminar(id: number): Promise<boolean> {
         try {
-            await pool.query(
+            const [result] = await pool.query<ResultSetHeader>(
                 "DELETE FROM CLIENTES WHERE Id_Cliente = ?",
                 [id],
             );
-            return true;
+            return result.affectedRows > 0;
         } catch (error) {
             throw error;
         }    

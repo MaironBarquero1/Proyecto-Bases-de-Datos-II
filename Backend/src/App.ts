@@ -1,10 +1,10 @@
 import express from 'express';
+import clienteRutas from './routes/ClienteRutas';
+
 
 const app = express();
 
-app.get('/',(request,response)=>{
-    response.send('get method');    
-})
+app.use('/api/clientes',clienteRutas);
 
 app.listen(3000,()=>{
     console.log('server started')
