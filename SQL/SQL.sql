@@ -207,18 +207,22 @@ BEGIN
     DECLARE v_Rol ENUM('origen', 'destino', 'ambos');
     DECLARE v_Usuario VARCHAR(50);
     DECLARE v_Insuficiente INT DEFAULT 0;
-    
-    -- Handler ante fallos imprevistos de SQL para evitar caídas abruptas y forzar deshacer cambios
+
+    -- Handler único: tanto las reglas de negocio señaladas (SQLSTATE 45000) como
+    -- cualquier fallo imprevisto de SQL deshacen la transacción, dejan el despacho
+    -- en 'cancelado', limpian el carro y RE-PROPAGAN el mensaje ORIGINAL (RESIGNAL).
+    -- Así la aplicación recibe el texto real ("Inconsistencia de stock...",
+    -- "no opera como Destino", etc.) en lugar de un mensaje genérico.
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         UPDATE DESPACHOS SET Estado = 'cancelado' WHERE Id_Despacho = p_Id_Despacho;
         DELETE FROM TEMPORAL_CARRO_COMPRAS WHERE Usuario = v_Usuario;
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Excepción crítica de base de datos. Transacción anulada.';
+        RESIGNAL;
     END;
 
     SET v_Usuario = SUBSTRING_INDEX(USER(), '@', 1);
-    
+
     -- Validar que el cliente admita destino
     SELECT Rol INTO v_Rol FROM CLIENTES WHERE Id_Cliente = p_Id_Cliente;
     IF v_Rol = 'origen' THEN
@@ -233,9 +237,7 @@ BEGIN
 
     -- Lógica Atómica (Principio ACID)
     IF v_Insuficiente > 0 THEN
-        -- Abortar flujo debido a inconsistencias de stock en uno o más productos
-        UPDATE DESPACHOS SET Estado = 'cancelado' WHERE Id_Despacho = p_Id_Despacho;
-        DELETE FROM TEMPORAL_CARRO_COMPRAS WHERE Usuario = v_Usuario;
+        -- Stock insuficiente: el HANDLER se encarga de cancelar y limpiar el carro
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Inconsistencia de stock detectada. Despacho Cancelado Automáticamente.';
     ELSE
         -- Ejecución limpia de la venta / salida
